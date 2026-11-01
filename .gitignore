@@ -1,0 +1,36 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Sensitive credentials
+.env
+.env.local
+.env.*.local
+
+# Logs and local artifacts
+*.log
+tunnel.log
+daemon.log
+start_all.log
+app.log
+start_all_err.log
+
+# Local binaries and tunnel tools
+cloudflared.exe
+
+# Database and docker data
+pgdata/
+redisdata/
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo

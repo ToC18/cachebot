@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cachebot_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-cachebot_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: cachebot_redis
+    restart: always
+    volumes:
+      - redisdata:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  app:
+    build: .
+    container_name: cachebot_app
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-cachebot_db}
+      - REDIS_URL=redis://redis:6379/0
+      - WEBAPP_URL=${WEBAPP_URL}
+      - APP_ENV=production
+      - PORT=8000
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
+  redisdata:

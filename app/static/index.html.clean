@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CacheBot Super App</title>
+  <script src="/static/telegram-web-app.js"></script>
+  <script src="/static/chart.js" defer></script>
+  <script>
+    function notifyTelegramReady() {
+      try {
+        if (window.Telegram && window.Telegram.WebApp) {
+          window.Telegram.WebApp.ready();
+          window.Telegram.WebApp.expand();
+        }
+      } catch (e) {
+        console.error("TG init error:", e);
+      }
+    }
+    notifyTelegramReady();
+    document.addEventListener("DOMContentLoaded", notifyTelegramReady);
+    window.addEventListener("load", notifyTelegramReady);
+  </script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #0d1117);
+      --card-bg: var(--tg-theme-secondary-bg-color, #161b22);
+      --card-inner: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: var(--tg-theme-text-color, #ffffff);
+      --text-muted: var(--tg-theme-hint-color, #8b949e);
+      --accent: var(--tg-theme-button-color, #3880ff);
+      --accent-text: var(--tg-theme-button-text-color, #ffffff);
+      --green: #2ecc71;
+      --red: #e74c3c;
+      --orange: #f39c12;
+      --purple: #9b59b6;
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 16px 16px 95px 16px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .greeting { font-size: 13px; color: var(--text-muted); }
+    .user-name { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .currency-badge {
+      background: var(--card-bg);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+
+    /* Hero Card */
+    .hero-card {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      border-radius: var(--radius);
+      padding: 22px;
+      color: #fff;
+      margin-bottom: 18px;
+      box-shadow: 0 10px 25px rgba(30, 60, 114, 0.25);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      top: -30%; right: -20%;
+      width: 170px; height: 170px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .hero-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.85; margin-bottom: 6px; }
+    .hero-amount { font-size: 38px; font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; line-height: 1.1; }
+    .progress-bar-container { background: rgba(0,0,0,0.25); border-radius: 10px; height: 8px; overflow: hidden; margin-bottom: 10px; }
+    .progress-bar { height: 100%; background: #2ecc71; width: 0%; transition: width 0.5s ease; }
+    .hero-stats { display: flex; justify-content: space-between; font-size: 13px; opacity: 0.9; }
+
+    /* Quick Action Buttons */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .action-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 13px;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    .action-btn:active { transform: scale(0.98); }
+    .action-btn.primary { background: var(--accent); color: var(--accent-text); border: none; }
+    .action-btn.danger { background: rgba(231, 76, 60, 0.15); color: #ff6b6b; border: 1px solid var(--red); }
+    .action-btn.success { background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid var(--green); }
+
+    /* Section Header */
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-title span.badge {
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 3px 8px;
+      border-radius: 8px;
+      color: var(--text-muted);
+    }
+
+    /* Cards & Grids */
+    .envelopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .envelope-card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      padding: 14px;
+      border: 1px solid var(--border);
+    }
+    .env-icon { font-size: 22px; margin-bottom: 6px; }
+    .env-name { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+    .env-amount { font-size: 16px; font-weight: 700; }
+
+    /* Box Containers */
+    .content-box {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .input-field {
+      width: 100%;
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-size: 16px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+    .input-field:focus { border-color: var(--accent); }
+
+    /* List Items */
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .item-subtitle { font-size: 12px; color: var(--text-muted); }
+    .item-val { font-size: 15px; font-weight: 700; text-align: right; }
+
+    /* Tab Content Pages */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--card-bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0 calc(8px + env(safe-area-inset-bottom)) 0;
+      backdrop-filter: blur(20px);
+      z-index: 100;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      flex: 1;
+    }
+    .nav-item.active { color: var(--accent); }
+    .nav-icon { font-size: 20px; }
+
+    /* Modal Sheets */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 200;
+      display: none;
+      align-items: flex-end;
+    }
+    .modal-sheet {
+      background: var(--card-bg);
+      border-radius: 24px 24px 0 0;
+      padding: 22px 18px calc(24px + env(safe-area-inset-bottom)) 18px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: slideUp 0.25s ease-out;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .badge-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .badge-tag.i-owe { background: rgba(231, 76, 60, 0.18); color: #ff6b6b; }
+    .badge-tag.owes-me { background: rgba(46, 204, 113, 0.18); color: #2ecc71; }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <div class="header">
+    <div>
+      <div class="greeting">Привет,</div>
+      <div class="user-name" id="userName">друг</div>
+    </div>
+    <div class="currency-badge" id="currencyBadge">BYN</div>
+  </div>
+
+  <!-- Network / Auth Error Banner -->
+  <div id="errorNotice" style="display: none; background: rgba(231, 76, 60, 0.2); border: 1px solid var(--red); color: #ff6b6b; padding: 12px; border-radius: 12px; margin-bottom: 16px; font-size: 13px;"></div>
+
+  <!-- =================================================================== -->
+  <!-- TAB 1: ГЛАВНАЯ (БЮДЖЕТ + БЫСТРЫЕ ДЕЙСТВИЯ)                         -->
+  <!-- =================================================================== -->
+  <div id="tab-dashboard" class="tab-content active">
+    <!-- Onboarding banner -->
+    <div id="noBudgetBanner" class="hero-card" style="display: none;">
+      <div style="font-size: 17px; font-weight: 700; margin-bottom: 6px;">👋 Твой бюджет ещё не рассчитан</div>
+      <div style="font-size: 13px; opacity: 0.9; margin-bottom: 14px; line-height: 1.4;">
+        Внеси зарплату или аванс, чтобы бот распределил конверты и запустил лимит Safe-to-Spend.
+      </div>
+      <button class="action-btn" style="background: #fff; color: #1e3c72; border: none; font-weight: 700; width: 100%;" onclick="openIncomeModal()">
+        💼 Внести доход сейчас
+      </button>
+    </div>
+
+    <!-- Hero Safe to Spend -->
+    <div class="hero-card" id="mainHeroCard">
+      <div class="hero-title">Safe-to-Spend на сегодня</div>
+      <div class="hero-amount" id="dailyLimit">0.00 BYN</div>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="dailyProgress"></div>
+      </div>
+      <div class="hero-stats">
+        <span>Потрачено: <b id="todaySpent">0.00</b> BYN</span>
+        <span id="daysLeftText">До зп: 0 дн.</span>
+      </div>
+    </div>
+
+    <!-- Quick action buttons -->
+    <div class="quick-actions">
+      <button class="action-btn primary" onclick="openExpenseModal()">
+        <span>➕</span> Расход
+      </button>
+      <button class="action-btn" onclick="openIncomeModal()">
+        <span>💼</span> Доход
+      </button>
+    </div>
+
+    <!-- Envelopes -->
+    <div class="section-title">Конверты ZBB <span class="badge" id="envCycleBadge">цикл</span></div>
+    <div class="envelopes-grid">
+      <div class="envelope-card" onclick="openEmergencyWithdrawModal()" style="cursor: pointer;">
+        <div style="display: flex; justify-content: space-between;">
+          <div class="env-icon">🎯</div>
+          <span style="font-size: 11px; color: #ff6b6b; font-weight: 600;">взять 💸</span>
+        </div>
+        <div class="env-name">Копилка / Подушка</div>
+        <div class="env-amount" id="savingsBalance">0.00 BYN</div>
+      </div>
+      <div class="envelope-card">
+        <div class="env-icon">🍕</div>
+        <div class="env-name">Фонд выходных</div>
+        <div class="env-amount" id="weekendBalance">0.00 BYN</div>
+      </div>
+      <div class="envelope-card">
+        <div class="env-icon">🚌</div>
+        <div class="env-name">Транспорт (дорога)</div>
+        <div class="env-amount" id="commuteBalance">0.00 BYN</div>
+      </div>
+      <div class="envelope-card">
+        <div class="env-icon">🔒</div>
+        <div class="env-name">Обязательства & Счета</div>
+        <div class="env-amount" id="fixedBalance">0.00 BYN</div>
+      </div>
+    </div>
+
+    <!-- Quick Life Tools (Рандомайзер прямо на главной) -->
+    <div class="content-box">
+      <div style="font-size: 14px; font-weight: 700; margin-bottom: 8px;">🎲 Сомневаешься: Брать или нет?</div>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="quickRandomizerInput" class="input-field" style="margin-bottom: 0;" placeholder="Что хочешь купить?">
+        <button class="action-btn primary" style="padding: 0 18px;" onclick="runQuickRandomizer()">Спросить</button>
+      </div>
+      <div id="quickRandomizerOutput" style="display: none; margin-top: 12px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.05); font-size: 13px;"></div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- TAB 2: ДОЛГИ & ОБЯЗАТЕЛЬСТВА (ФИЧИ 2, 6, 8)                        -->
+  <!-- =================================================================== -->
+  <div id="tab-debts" class="tab-content">
+    <div class="section-title">
+      Подушка безопасности
+      <button class="action-btn danger" style="padding: 4px 10px; font-size: 12px;" onclick="openEmergencyWithdrawModal()">💸 Вычет из подушки</button>
+    </div>
+    <div class="content-box">
+      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Доступно в резерве:</div>
+      <div style="font-size: 26px; font-weight: 800; color: #2ecc71;" id="debtsTabSavings">0.00 BYN</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+        💡 Деньги из подушки идут только на форс-мажоры. В следующем месяце система напоминает вернуть сумму обратно.
+      </div>
+    </div>
+
+    <!-- Счетчик долгов -->
+    <div class="section-title">
+      Счетчик долгов
+      <button class="action-btn" style="padding: 4px 10px; font-size: 12px;" onclick="openDebtModal()">➕ Записать долг</button>
+    </div>
+    <div class="content-box">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div style="background: rgba(231,76,60,0.1); padding: 10px; border-radius: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #ff6b6b; font-weight: 600;">Я должен:</div>
+          <div style="font-size: 16px; font-weight: 800; color: #ff6b6b;" id="totalIOwe">0.00 BYN</div>
+        </div>
+        <div style="background: rgba(46,204,113,0.1); padding: 10px; border-radius: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #2ecc71; font-weight: 600;">Мне должны:</div>
+          <div style="font-size: 16px; font-weight: 800; color: #2ecc71;" id="totalOwesMe">0.00 BYN</div>
+        </div>
+      </div>
+      <div id="debtsListContainer">
+        <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 10px 0;">Активных долгов нет 🎉</div>
+      </div>
+    </div>
+
+    <!-- Кредиты, рассрочки, абонементы, вейп -->
+    <div class="section-title">
+      Рассрочки, кредиты & вейп
+      <button class="action-btn" style="padding: 4px 10px; font-size: 12px;" onclick="openObligationModal()">➕ Добавить</button>
+    </div>
+    <div class="content-box">
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+        🔒 Замораживаются отдельно при зарплате и <b>не трогают дневной бюджет</b>.
+      </div>
+      <div id="obligationsListContainer">
+        <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 10px 0;">Нет активных обязательств</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- TAB 3: ЗОЖ & НАПОМИНАНИЯ (ЗАРЯДКА, ПП-РЕЦЕПТЫ, ПОКУПКИ)            -->
+  <!-- =================================================================== -->
+  <div id="tab-health" class="tab-content">
+    <!-- Напоминания о зарядке и тренировках -->
+    <div class="section-title">
+      Зарядка и тренировки
+      <button class="action-btn success" style="padding: 4px 10px; font-size: 12px;" onclick="openHabitModal()">➕ Напоминание</button>
+    </div>
+    <div class="content-box">
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+        ⏰ Бот будет присылать напоминание в Telegram ровно в выбранное время по МСК.
+      </div>
+      <div id="habitsListContainer">
+        <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 8px 0;">Напоминаний нет</div>
+      </div>
+    </div>
+
+    <!-- Генератор ПП-рецептов -->
+    <div class="section-title">🥗 Что приготовить (ПП-рецепты)</div>
+    <div class="content-box">
+      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">
+        Оставь пустым, чтобы получить рецепт из того, что всегда есть дома (яйца, овсянка, гречка, тунец), либо перечисли ингредиенты:
+      </div>
+      <input type="text" id="recipeIngredientsInput" class="input-field" placeholder="Например: курица, кабачок, рис">
+      <button class="action-btn primary" style="width: 100%;" onclick="generateRecipe()">🍳 Подобрать ПП-рецепт</button>
+
+      <div id="recipeResultBox" style="display: none; margin-top: 14px; padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border);">
+        <div id="recipeTitle" style="font-size: 16px; font-weight: 700; color: #2ecc71; margin-bottom: 4px;"></div>
+        <div id="recipeMeta" style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;"></div>
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Ингредиенты:</div>
+        <ul id="recipeIngredientsList" style="font-size: 13px; color: var(--text-muted); margin-left: 18px; margin-bottom: 10px; line-height: 1.5;"></ul>
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Приготовление:</div>
+        <ol id="recipeStepsList" style="font-size: 13px; color: var(--text-muted); margin-left: 18px; margin-bottom: 10px; line-height: 1.5;"></ol>
+        <div id="recipeTip" style="font-size: 12px; background: rgba(56, 128, 255, 0.12); padding: 8px; border-radius: 8px; color: #64b5f6;"></div>
+      </div>
+    </div>
+
+    <!-- Список покупок с напоминанием -->
+    <div class="section-title">
+      Список покупок в магазин
+      <button class="action-btn" style="padding: 4px 10px; font-size: 12px;" onclick="openShoppingModal()">➕ Создать</button>
+    </div>
+    <div class="content-box">
+      <div id="shoppingListContainer">
+        <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 8px 0;">Списков покупок нет</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- TAB 4: АНАЛИТИКА & ЦЕЛИ (ФИЧИ 1, 5)                                 -->
+  <!-- =================================================================== -->
+  <div id="tab-analytics" class="tab-content">
+    <!-- Диаграмма категорий трат (фича 1) -->
+    <div class="section-title">📊 Категории расходов (чеки и выписки)</div>
+    <div class="content-box" style="display: flex; flex-direction: column; align-items: center;">
+      <canvas id="categoryChart" width="280" height="280"></canvas>
+    </div>
+
+    <!-- Структура бюджета ZBB -->
+    <div class="section-title">Структура бюджета (ZBB)</div>
+    <div class="content-box" style="display: flex; flex-direction: column; align-items: center;">
+      <canvas id="budgetChart" width="280" height="280"></canvas>
+    </div>
+
+    <!-- Финансовые цели и расчет времени (фича 5) -->
+    <div class="section-title">
+      Финансовые цели & Сроки
+      <button class="action-btn" style="padding: 4px 10px; font-size: 12px;" onclick="openGoalModal()">➕ Новая цель</button>
+    </div>
+    <div class="content-box">
+      <div id="goalsListContainer">
+        <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 8px 0;">У тебя пока нет финансовых целей</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- TAB 5: НАСТРОЙКИ (ФИЧА 3 + ПАРАМЕТРЫ)                              -->
+  <!-- =================================================================== -->
+  <div id="tab-settings" class="tab-content">
+    <div class="section-title">Настройки профиля & ЗОЖ</div>
+    <div class="content-box">
+      <div style="margin-bottom: 14px;">
+        <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">День выплаты зарплаты</label>
+        <input type="number" id="settingPaydayDay" class="input-field" min="1" max="31">
+      </div>
+      <div style="margin-bottom: 14px;">
+        <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">% в копилку (Pay Yourself First)</label>
+        <input type="number" id="settingSavingsPercent" class="input-field" min="5" max="50">
+      </div>
+      
+      <!-- Фича 3: включение / отключение часов работы -->
+      <div style="margin-bottom: 16px; padding: 12px; border-radius: 12px; background: var(--card-inner); display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <div style="font-size: 14px; font-weight: 600;">Калькулятор часов жизни</div>
+          <div style="font-size: 12px; color: var(--text-muted);">Переводить траты в рабочие часы</div>
+        </div>
+        <input type="checkbox" id="settingShowHourlyRate" style="width: 22px; height: 22px;">
+      </div>
+
+      <!-- ЗОЖ параметры (рост / вес) -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+        <div>
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Текущий вес (кг)</label>
+          <input type="number" id="settingWeight" class="input-field" step="0.1" placeholder="75">
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Целевой вес (кг)</label>
+          <input type="number" id="settingTargetWeight" class="input-field" step="0.1" placeholder="70">
+        </div>
+      </div>
+
+      <button class="action-btn primary" style="width: 100%;" onclick="saveSettings()">Сохранить настройки</button>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- BOTTOM TAB NAVIGATION (5 ТАБОВ)                                     -->
+  <!-- =================================================================== -->
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('dashboard', this)">
+      <div class="nav-icon">🏠</div>
+      <div>Главная</div>
+    </div>
+    <div class="nav-item" onclick="switchTab('debts', this)">
+      <div class="nav-icon">🎯</div>
+      <div>Подушка</div>
+    </div>
+    <div class="nav-item" onclick="switchTab('health', this)">
+      <div class="nav-icon">🥗</div>
+      <div>ЗОЖ & План</div>
+    </div>
+    <div class="nav-item" onclick="switchTab('analytics', this)">
+      <div class="nav-icon">📊</div>
+      <div>Аналитика</div>
+    </div>
+    <div class="nav-item" onclick="switchTab('settings', this)">
+      <div class="nav-icon">⚙️</div>
+      <div>Профиль</div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODALS                                                              -->
+  <!-- =================================================================== -->
+
+  <!-- Modal: Расход -->
+  <div class="modal-overlay" id="expenseModal" onclick="closeModalOnOverlay(event, 'expenseModal')">
+    <div class="modal-sheet">
+      <div class="section-title" style="margin-bottom: 16px;">Записать расход</div>
+      <input type="number" id="modalExpenseAmount" class="input-field" placeholder="Сумма (BYN)" step="0.01">
+      <input type="text" id="modalExpenseDesc" class="input-field" placeholder="Описание (например, кофе, евроопт)">
+      <button class="action-btn primary" style="width: 100%;" onclick="submitExpense()">Записать</button>
+    </div>
+  </div>
+
+  <!-- Modal: Доход -->
+  <div class="modal-overlay" id="incomeModal" onclick="closeModalOnOverlay(event, 'incomeModal')">
+    <div class="modal-sheet">
+      <div class="section-title" style="margin-bottom: 16px;">Внести доход</div>
+      <input type="number" id="modalIncomeAmount" class="input-field" placeholder="Сумма (BYN)" step="0.01">
+      <select id="modalIncomeType" class="input-field" style="background: rgba(255,255,255,0.06);">
+        <option value="full_salary">Полная зарплата (новый цикл)</option>
+        <option value="advance">Аванс / часть выплаты</option>
+        <option value="bonus">Премия / подработка</option>
+      </select>
+      <button class="action-btn primary" style="width: 100%;" onclick="submitIncome()">Внести</button>
+    </div>
+  </div>
+
+  <!-- Modal: Вычет из подушки -->
+  <div class="modal-overlay" id="emergencyModal" onclick="closeModalOnOverlay(event, 'emergencyModal')">
+    <div class="modal-sheet">
+      <div class="section-title" style="margin-bottom: 16px;">💸 Вычет из подушки безопасности</div>
+      <input type="number" id="modalEmergencyAmount" class="input-field" placeholder="Сумма вычета (BYN)" step="0.01">
+      <input type="text" id="modalEmergencyReason" class="input-field" placeholder="Причина (ремонт зуба, поломка)">
+      <button class="action-btn danger" style="width: 100%;" onclick="submitEmergencyWithdraw()">Списать из подушки</button>
+    </div>
+  </div>
+
+  <!-- Modal: Записать долг -->
+  <div class="modal-overlay" id="debtModal" onclick="closeModalOnOverlay(event, 'debtModal')">
+    <div class="modal-sheet">
+      <div class="section-title" style="margin-bottom: 16px;">Записать долг</div>
+      <select id="modalDebtType" class="input-field" style="background: rgba(255,255,255,0.06);">
+        <option value="I_OWE">🔴 Я должен кому-то</option>
+        <option value="OWES_ME">🟢 Мне должны</option>
+      </select>
+      <input type="text" id="modalDebtPerson" class="input-field" placeholder="Имя человека">
+      <input type="number" id="modalDebtAmount" class="input-field" placeholder="Сумма долга (BYN)" step="0.01">
+      <input type="text" id="modalDebtComment" class="input-field" placeholder="Комментарий (необязательно)">
+      <button class="action-btn primary" style="width: 100%;" onclick="submitDebt()">Сохранить долг</button>
+    </div>
+  </div>
+
+  <!-- Modal: Добавить обязательство / вейп -->
+  <div class="modal-overlay" id="obligationModal" onclick="closeModalOnOverlay(event, 'obligationModal')">
+    <div class="modal-sheet">
+      <div class="section-title" style="margin-bottom: 16px;">Добавить обязательство</div>
+      <select id="modalObligationType" class="input-field" style="background: rgba(255,255,255,0.06);">
+        <option value="INSTALLMENT">Рассрочка</option>
+        <option value="CREDIT">Кредит</option>
+        <option value="SUBSCRIPTION">Абонемент / Подписка</option>
+        <option value="CONSUMABLE">Расходники (вейп, быт. химия)</option>
+      </select>
+      <input type="text" id="modalObligationTitle" class="input-field" placeholder="Название (например, Вейп/жижа, Рассрочка iPhone)">
+      <input type="number" id="modalObligationAmount" class="input-field" placeholder="Сумма в месяц (BYN)" step="0.01">
+      <input type="number" id="modalObligationMonths" class="input-field" placeholder="Сколько месяцев осталось (для рассрочек)">
+      <button class="action-btn primary" style="width: 100%;" onclick="submitObligation()">Сохранить</button>
+    </div>
+  </div>
+
+  <!-- Modal: Финансовая цель -->
+  <div class="modal-overlay" id="goalModal" onclick="closeModalOnOverlay(event, 'goalModal')">
+    <div class="modal-sheet">
+      <div class="section-title" style="margin-bottom: 16px;">Новая цель накопления</div>
+      <input type="text" id="modalGoalTitle" class="input-field" placeholder="Название (Ноутбук, Отпуск)">
+      <input type="number" id="modalGoalTarget" class="input-field" placeholder="Целевая сумма (BYN)" step="0.01">
+      <button class="action-btn primary" style="width: 100%;" onclick="submitGoal()">Создать цель</button>
+    </div>
+  </div>
+
+  <!-- Modal: Список покупок -->
+  <div class="modal-overlay" id="shoppingModal" onclick="closeModalOnOverlay(event, 'shoppingModal')">
+    <div class="modal-sheet">
+      <div class="section-title" style="margin-bottom: 16px;">Список покупок в магазин</div>
+      <textarea id="modalShoppingItems" class="input-field" style="height: 80px;" placeholder="Молоко, яйца, хлеб, стики..."></textarea>
+      <input type="text" id="modalShoppingTime" class="input-field" placeholder="Время напоминания по МСК (например, 18:30)">
+      <button class="action-btn primary" style="width: 100%;" onclick="submitShoppingReminder()">Установить напоминание</button>
+    </div>
+  </div>
+
+  <!-- Modal: Напоминание о зарядке -->
+  <div class="modal-overlay" id="habitModal" onclick="closeModalOnOverlay(event, 'habitModal')">
+    <div class="modal-sheet">
+      <div class="section-title" style="margin-bottom: 16px;">Напоминание о зарядке / тренировке</div>
+      <select id="modalHabitType" class="input-field" style="background: rgba(255,255,255,0.06);">
+        <option value="WARMUP">🤸‍♂️ Утренняя зарядка</option>
+        <option value="WORKOUT">💪 Тренировка (зал / дом)</option>
+        <option value="WATER">💧 Водный баланс</option>
+        <option value="STRETCH">🧘‍♂️ Растяжка / заминка</option>
+      </select>
+      <input type="text" id="modalHabitTitle" class="input-field" placeholder="Название (например, Зарядка 10 минут)">
+      <input type="text" id="modalHabitTime" class="input-field" placeholder="Время напоминания по МСК (например, 08:30)">
+      <button class="action-btn success" style="width: 100%;" onclick="submitHabitReminder()">Включить напоминание</button>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- JAVASCRIPT LOGIC                                                    -->
+  <!-- =================================================================== -->
+  <script>
+    const tg = window.Telegram ? window.Telegram.WebApp : null;
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+      } catch(e) {}
+    }
+
+    function haptic() {
+      if (tg && tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred('light');
+      }
+    }
+
+    const initData = (tg && tg.initData) ? tg.initData : '';
+    let globalHourlyRate = 0;
+    let chartInstance = null;
+    let categoryChartInstance = null;
+    let lastDashboardData = null;
+
+    function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, Object.assign({}, options, { signal: controller.signal, cache: 'no-store' }))
+        .finally(() => clearTimeout(timer));
+    }
+
+    function api(path, options = {}) {
+      const headers = Object.assign({}, options.headers || {}, { 'X-Telegram-Init-Data': initData });
+      return fetchWithTimeout(`/api/me/${path}`, Object.assign({}, options, { headers }));
+    }
+
+    function showError(msg) {
+      const errEl = document.getElementById('errorNotice');
+      if (errEl) {
+        errEl.style.display = 'block';
+        errEl.innerText = msg;
+      }
+    }
+
+    async function loadDashboard() {
+      if (!initData) {
+        showError('⚠️ Открой приложение через кнопку «📱 Приложение» в меню бота или «📱 Открыть Mini App» — так Telegram передаст твой профиль.');
+        return;
+      }
+      try {
+        const res = await api('dashboard');
+        if (res.status === 401) {
+          showError('⚠️ Не удалось подтвердить твой Telegram-профиль. Закрой и открой приложение заново из бота.');
+          return;
+        }
+        if (!res.ok) {
+          showError(`⚠️ Сервер ответил ошибкой ${res.status}`);
+          return;
+        }
+        const data = await res.json();
+        lastDashboardData = data;
+        const okErrEl = document.getElementById('errorNotice');
+        if (okErrEl) okErrEl.style.display = 'none';
+
+        if (data.first_name) document.getElementById('userName').innerText = data.first_name;
+        document.getElementById('dailyLimit').innerText = `${data.daily_safe_spend_limit} ${data.currency}`;
+        document.getElementById('todaySpent').innerText = data.today_spent;
+        document.getElementById('daysLeftText').innerText = `До зп: ${data.days_left} дн.`;
+        document.getElementById('currencyBadge').innerText = data.currency;
+
+        const limit = parseFloat(data.daily_safe_spend_limit) || 1;
+        const spent = parseFloat(data.today_spent) || 0;
+        const percent = Math.min((spent / limit) * 100, 100);
+        const bar = document.getElementById('dailyProgress');
+        bar.style.width = `${percent}%`;
+        bar.style.background = percent > 90 ? 'var(--red)' : percent > 60 ? 'var(--orange)' : 'var(--green)';
+
+        document.getElementById('savingsBalance').innerText = `${data.envelopes.savings} ${data.currency}`;
+        document.getElementById('debtsTabSavings').innerText = `${data.envelopes.savings} ${data.currency}`;
+        document.getElementById('weekendBalance').innerText = `${data.envelopes.weekend_fund} ${data.currency}`;
+        document.getElementById('commuteBalance').innerText = `${data.envelopes.commute} ${data.currency}`;
+        document.getElementById('fixedBalance').innerText = `${data.envelopes.fixed_commitment} ${data.currency}`;
+
+        globalHourlyRate = parseFloat(data.current_hourly_rate) || 0;
+
+        // Настройки
+        document.getElementById('settingPaydayDay').value = data.payday_day_of_month;
+        document.getElementById('settingSavingsPercent').value = data.savings_target_percent;
+        const chk = document.getElementById('settingShowHourlyRate');
+        if (chk) chk.checked = data.show_hourly_rate !== false;
+
+        if (data.health) {
+          if (data.health.weight_kg) document.getElementById('settingWeight').value = data.health.weight_kg;
+          if (data.health.target_weight_kg) document.getElementById('settingTargetWeight').value = data.health.target_weight_kg;
+        }
+
+        const noBudget = document.getElementById('noBudgetBanner');
+        const mainCard = document.getElementById('mainHeroCard');
+        if (noBudget && mainCard) {
+          if (!data.has_budget) {
+            noBudget.style.display = 'block';
+            mainCard.style.display = 'none';
+          } else {
+            noBudget.style.display = 'none';
+            mainCard.style.display = 'block';
+          }
+        }
+
+        // Рендер списков
+        renderDebtsList(data.debts);
+        renderObligationsList(data.obligations);
+        renderGoalsList(data.goals, data.currency);
+        renderShoppingList(data.shopping_reminders);
+        renderHabitsList(data.habit_reminders);
+
+        if (typeof Chart !== 'undefined') {
+          renderChart(data);
+          renderCategoryChart(data.category_breakdown || {});
+        }
+      } catch (err) {
+        console.error(err);
+        const reason = err.name === 'AbortError' ? 'сервер не отвечает (таймаут)' : err.message;
+        showError(`⚠️ Ошибка синхронизации данных: ${reason}`);
+      }
+    }
+
+    // Рендер долгов
+    function renderDebtsList(debts) {
+      const container = document.getElementById('debtsListContainer');
+      document.getElementById('totalIOwe').innerText = `${debts.total_i_owe.toFixed(2)} BYN`;
+      document.getElementById('totalOwesMe').innerText = `${debts.total_owes_me.toFixed(2)} BYN`;
+
+      const all = [...debts.i_owe.map(d => ({ ...d, type: 'i_owe' })), ...debts.owes_me.map(d => ({ ...d, type: 'owes_me' }))];
+      if (!all.length) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 10px 0;">Активных долгов нет 🎉</div>';
+        return;
+      }
+      container.innerHTML = all.map(d => `
+        <div class="item-row">
+          <div>
+            <div class="item-title">
+              <span class="badge-tag ${d.type === 'i_owe' ? 'i-owe' : 'owes-me'}">${d.type === 'i_owe' ? 'Я должен' : 'Мне должен'}</span>
+              ${d.person}
+            </div>
+            <div class="item-subtitle">${d.comment || 'Без комментария'}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="item-val">${d.amount.toFixed(2)} BYN</div>
+            <button class="action-btn" style="padding: 4px 8px; font-size: 11px;" onclick="closeDebt('${d.id}')">Закрыть</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Рендер обязательств (рассрочки / вейп)
+    function renderObligationsList(list) {
+      const container = document.getElementById('obligationsListContainer');
+      if (!list || !list.length) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 10px 0;">Нет активных обязательств</div>';
+        return;
+      }
+      const typeIcons = {
+        INSTALLMENT: '💳 Рассрочка',
+        CREDIT: '🏦 Кредит',
+        SUBSCRIPTION: '📱 Подписка',
+        CONSUMABLE: '📦 Расходник (вейп/химия)'
+      };
+      container.innerHTML = list.map(o => `
+        <div class="item-row">
+          <div>
+            <div class="item-title">${o.title}</div>
+            <div class="item-subtitle">${typeIcons[o.type] || 'Платеж'} ${o.months_left ? `(осталось ${o.months_left} мес.)` : ''}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="item-val">${o.amount.toFixed(2)} BYN/мес</div>
+            <button class="action-btn danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteObligation('${o.id}')">✕</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Рендер целей
+    function renderGoalsList(goals, currency) {
+      const container = document.getElementById('goalsListContainer');
+      if (!goals || !goals.length) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 8px 0;">У тебя пока нет финансовых целей</div>';
+        return;
+      }
+      container.innerHTML = goals.map(g => {
+        const pct = Math.min(Math.round((g.current / (g.target || 1)) * 100), 100);
+        return `
+          <div style="margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <div style="font-weight: 700; font-size: 14px;">🏆 ${g.title}</div>
+              <div style="font-weight: 700; font-size: 14px;">${g.current}/${g.target} ${currency}</div>
+            </div>
+            <div class="progress-bar-container" style="height: 6px; margin-bottom: 6px;">
+              <div class="progress-bar" style="width: ${pct}%; background: #2ecc71;"></div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted);">${g.eta_text}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Рендер покупок
+    function renderShoppingList(list) {
+      const container = document.getElementById('shoppingListContainer');
+      if (!list || !list.length) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 8px 0;">Списков покупок нет</div>';
+        return;
+      }
+      container.innerHTML = list.map(s => `
+        <div class="item-row">
+          <div>
+            <div class="item-title">🛒 ${s.items}</div>
+            <div class="item-subtitle">⏰ Напоминание в ${s.time} МСК</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Рендер привычек
+    function renderHabitsList(list) {
+      const container = document.getElementById('habitsListContainer');
+      if (!list || !list.length) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 8px 0;">Напоминаний нет</div>';
+        return;
+      }
+      const icons = { WARMUP: '🤸‍♂️ Зарядка', WORKOUT: '💪 Тренировка', WATER: '💧 Вода', STRETCH: '🧘‍♂️ Растяжка' };
+      container.innerHTML = list.map(h => `
+        <div class="item-row">
+          <div>
+            <div class="item-title">${h.title}</div>
+            <div class="item-subtitle">${icons[h.type] || 'Привычка'} • каждый день в ${h.time} МСК</div>
+          </div>
+          <button class="action-btn danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteHabit('${h.id}')">✕</button>
+        </div>
+      `).join('');
+    }
+
+    // Диаграмма ZBB
+    function renderChart(data) {
+      const el = document.getElementById('budgetChart');
+      if (!el || typeof Chart === 'undefined') return;
+      const ctx = el.getContext('2d');
+      const frozen = parseFloat(data.envelopes.commute) + parseFloat(data.envelopes.fixed_commitment);
+      const savings = parseFloat(data.envelopes.savings);
+      const discretionary = parseFloat(data.envelopes.daily_safe_spend);
+      const weekend = parseFloat(data.envelopes.weekend_fund);
+
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Обязательства', 'Копилка', 'Свободный бюджет', 'Фонд выходных'],
+          datasets: [{
+            data: [frozen || 1, savings || 1, discretionary || 1, weekend || 0],
+            backgroundColor: ['#34495e', '#2ecc71', '#3498db', '#f39c12'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          cutout: '68%',
+          plugins: { legend: { position: 'bottom', labels: { color: '#8b92a5', font: { size: 11, weight: '600' } } } }
+        }
+      });
+    }
+
+    // Диаграмма категорий
+    function renderCategoryChart(categories) {
+      const el = document.getElementById('categoryChart');
+      if (!el || typeof Chart === 'undefined') return;
+      const ctx = el.getContext('2d');
+
+      const labels = Object.keys(categories);
+      const values = Object.values(categories);
+
+      if (categoryChartInstance) categoryChartInstance.destroy();
+
+      const colors = ['#e74c3c', '#3498db', '#f39c12', '#2ecc71', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+
+      categoryChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels.length ? labels : ['Нет трат'],
+          datasets: [{
+            data: values.length ? values : [1],
+            backgroundColor: labels.length ? colors.slice(0, labels.length) : ['#7f8c8d'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          cutout: '65%',
+          plugins: { legend: { position: 'bottom', labels: { color: '#8b92a5', font: { size: 11, weight: '600' } } } }
+        }
+      });
+    }
+
+    function switchTab(tabName, el) {
+      haptic();
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      el.classList.add('active');
+
+      if (tabName === 'analytics') {
+        if (!chartInstance && lastDashboardData) {
+          renderChart(lastDashboardData);
+          renderCategoryChart(lastDashboardData.category_breakdown || {});
+        }
+        if (chartInstance) chartInstance.resize();
+        if (categoryChartInstance) categoryChartInstance.resize();
+      }
+    }
+
+    // Рандомайзер на главной
+    async function runQuickRandomizer() {
+      haptic();
+      const item = document.getElementById('quickRandomizerInput').value;
+      const out = document.getElementById('quickRandomizerOutput');
+      out.style.display = 'block';
+      out.innerHTML = '🎲 Бросаем кубик осознанности...';
+
+      const res = await api('randomizer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item })
+      });
+      const data = await res.json();
+      out.innerHTML = `
+        <div style="font-size: 15px; font-weight: 800; margin-bottom: 4px;">${data.emoji} ${data.decision}</div>
+        <div style="font-size: 13px; color: var(--text-muted); font-style: italic;">${data.reason}</div>
+      `;
+    }
+
+    // ПП-рецепт
+    async function generateRecipe() {
+      haptic();
+      const ings = document.getElementById('recipeIngredientsInput').value;
+      const box = document.getElementById('recipeResultBox');
+      box.style.display = 'block';
+      document.getElementById('recipeTitle').innerText = '⏳ Подбираем сбалансированный рецепт...';
+
+      const res = await api('recipes/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredients: ings })
+      });
+      const data = await res.json();
+
+      document.getElementById('recipeTitle').innerText = data.title;
+      document.getElementById('recipeMeta').innerText = `⏱ ${data.time} • 🔥 ${data.calories}`;
+      document.getElementById('recipeIngredientsList').innerHTML = (data.ingredients || []).map(i => `<li>${i}</li>`).join('');
+      document.getElementById('recipeStepsList').innerHTML = (data.steps || []).map(s => `<li>${s}</li>`).join('');
+      document.getElementById('recipeTip').innerText = `💡 ${data.tip || ''}`;
+    }
+
+    // Actions
+    function openExpenseModal() { haptic(); document.getElementById('expenseModal').style.display = 'flex'; }
+    function openIncomeModal() { haptic(); document.getElementById('incomeModal').style.display = 'flex'; }
+    function openEmergencyWithdrawModal() { haptic(); document.getElementById('emergencyModal').style.display = 'flex'; }
+    function openDebtModal() { haptic(); document.getElementById('debtModal').style.display = 'flex'; }
+    function openObligationModal() { haptic(); document.getElementById('obligationModal').style.display = 'flex'; }
+    function openGoalModal() { haptic(); document.getElementById('goalModal').style.display = 'flex'; }
+    function openShoppingModal() { haptic(); document.getElementById('shoppingModal').style.display = 'flex'; }
+    function openHabitModal() { haptic(); document.getElementById('habitModal').style.display = 'flex'; }
+
+    function closeModalOnOverlay(e, modalId) {
+      if (e.target.id === modalId) document.getElementById(modalId).style.display = 'none';
+    }
+
+    async function submitExpense() {
+      haptic();
+      const amount = document.getElementById('modalExpenseAmount').value;
+      const desc = document.getElementById('modalExpenseDesc').value || 'Расход';
+      if (!amount) return;
+      await api('expense', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: parseFloat(amount), description: desc })
+      });
+      document.getElementById('expenseModal').style.display = 'none';
+      document.getElementById('modalExpenseAmount').value = '';
+      document.getElementById('modalExpenseDesc').value = '';
+      loadDashboard();
+    }
+
+    async function submitIncome() {
+      haptic();
+      const amount = document.getElementById('modalIncomeAmount').value;
+      const type = document.getElementById('modalIncomeType').value;
+      if (!amount) return;
+      await api('income', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: parseFloat(amount), income_type: type })
+      });
+      document.getElementById('incomeModal').style.display = 'none';
+      document.getElementById('modalIncomeAmount').value = '';
+      loadDashboard();
+    }
+
+    async function submitEmergencyWithdraw() {
+      haptic();
+      const amount = document.getElementById('modalEmergencyAmount').value;
+      const reason = document.getElementById('modalEmergencyReason').value || 'Форс-мажор';
+      if (!amount) return;
+      const res = await api('emergency-withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: parseFloat(amount), reason })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || 'Ошибка');
+        return;
+      }
+      document.getElementById('emergencyModal').style.display = 'none';
+      document.getElementById('modalEmergencyAmount').value = '';
+      document.getElementById('modalEmergencyReason').value = '';
+      loadDashboard();
+    }
+
+    async function submitDebt() {
+      haptic();
+      const type = document.getElementById('modalDebtType').value;
+      const person = document.getElementById('modalDebtPerson').value;
+      const amount = document.getElementById('modalDebtAmount').value;
+      const comment = document.getElementById('modalDebtComment').value;
+      if (!person || !amount) return;
+      await api('debts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ debt_type: type, person_name: person, amount: parseFloat(amount), comment })
+      });
+      document.getElementById('debtModal').style.display = 'none';
+      document.getElementById('modalDebtPerson').value = '';
+      document.getElementById('modalDebtAmount').value = '';
+      document.getElementById('modalDebtComment').value = '';
+      loadDashboard();
+    }
+
+    async function closeDebt(id) {
+      haptic();
+      await api(`debts/${id}/close`, { method: 'POST' });
+      loadDashboard();
+    }
+
+    async function submitObligation() {
+      haptic();
+      const type = document.getElementById('modalObligationType').value;
+      const title = document.getElementById('modalObligationTitle').value;
+      const amount = document.getElementById('modalObligationAmount').value;
+      const months = document.getElementById('modalObligationMonths').value;
+      if (!title || !amount) return;
+      await api('obligations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          obligation_type: type,
+          title,
+          monthly_amount: parseFloat(amount),
+          months_left: months ? parseInt(months) : null
+        })
+      });
+      document.getElementById('obligationModal').style.display = 'none';
+      document.getElementById('modalObligationTitle').value = '';
+      document.getElementById('modalObligationAmount').value = '';
+      document.getElementById('modalObligationMonths').value = '';
+      loadDashboard();
+    }
+
+    async function deleteObligation(id) {
+      haptic();
+      await api(`obligations/${id}`, { method: 'DELETE' });
+      loadDashboard();
+    }
+
+    async function submitGoal() {
+      haptic();
+      const title = document.getElementById('modalGoalTitle').value;
+      const target = document.getElementById('modalGoalTarget').value;
+      if (!title || !target) return;
+      await api('goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, target_amount: parseFloat(target) })
+      });
+      document.getElementById('goalModal').style.display = 'none';
+      document.getElementById('modalGoalTitle').value = '';
+      document.getElementById('modalGoalTarget').value = '';
+      loadDashboard();
+    }
+
+    async function submitShoppingReminder() {
+      haptic();
+      const items = document.getElementById('modalShoppingItems').value;
+      const timeStr = document.getElementById('modalShoppingTime').value;
+      if (!items || !timeStr) return;
+      const res = await api('shopping-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, time_str: timeStr })
+      });
+      if (!res.ok) {
+        alert('Укажи время в формате 18:30');
+        return;
+      }
+      document.getElementById('shoppingModal').style.display = 'none';
+      document.getElementById('modalShoppingItems').value = '';
+      document.getElementById('modalShoppingTime').value = '';
+      alert('Напоминание установлено! Бот пришлет список в Telegram.');
+      loadDashboard();
+    }
+
+    async function submitHabitReminder() {
+      haptic();
+      const type = document.getElementById('modalHabitType').value;
+      const title = document.getElementById('modalHabitTitle').value || 'Зарядка';
+      const timeStr = document.getElementById('modalHabitTime').value;
+      if (!timeStr) return;
+      const res = await api('habit-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ habit_type: type, title, time_str: timeStr })
+      });
+      if (!res.ok) {
+        alert('Укажи время в формате 08:30');
+        return;
+      }
+      document.getElementById('habitModal').style.display = 'none';
+      document.getElementById('modalHabitTitle').value = '';
+      document.getElementById('modalHabitTime').value = '';
+      alert('Напоминание о зарядке включено! Бот будет присылать уведомление каждый день.');
+      loadDashboard();
+    }
+
+    async function deleteHabit(id) {
+      haptic();
+      await api(`habit-reminders/${id}`, { method: 'DELETE' });
+      loadDashboard();
+    }
+
+    async function saveSettings() {
+      haptic();
+      const payday = document.getElementById('settingPaydayDay').value;
+      const savings = document.getElementById('settingSavingsPercent').value;
+      const showHourly = document.getElementById('settingShowHourlyRate').checked;
+      const weight = document.getElementById('settingWeight').value;
+      const targetWeight = document.getElementById('settingTargetWeight').value;
+
+      await api('settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          payday_day: parseInt(payday), 
+          savings_percent: parseFloat(savings),
+          show_hourly_rate: showHourly,
+          weight_kg: weight ? parseFloat(weight) : null,
+          target_weight_kg: targetWeight ? parseFloat(targetWeight) : null
+        })
+      });
+
+      alert('Настройки успешно сохранены!');
+      loadDashboard();
+    }
+
+    window.addEventListener('load', () => {
+      if (!chartInstance && lastDashboardData) {
+        renderChart(lastDashboardData);
+        renderCategoryChart(lastDashboardData.category_breakdown || {});
+      }
+    });
+
+    loadDashboard();
+  </script>
+</body>
+</html>
