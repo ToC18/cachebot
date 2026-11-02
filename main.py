@@ -33,11 +33,34 @@ scheduler = setup_scheduler(bot)
 main_loop: asyncio.AbstractEventLoop | None = None
 
 
+def detect_environment_webapp_url() -> str:
+    """Auto-detects the public URL from Replit, Render, Railway, or explicit WEBAPP_URL."""
+    if os.environ.get("WEBAPP_URL"):
+        return os.environ["WEBAPP_URL"].strip()
+
+    # Replit Dev Domain
+    replit_dev = os.environ.get("REPLIT_DEV_DOMAIN")
+    if replit_dev:
+        return f"https://{replit_dev}/app?v=4.0"
+
+    slug = os.environ.get("REPL_SLUG")
+    owner = os.environ.get("REPL_OWNER")
+    if slug and owner:
+        return f"https://{slug}.{owner}.replit.app/app?v=4.0"
+
+    # Render.com
+    render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+    if render_host:
+        return f"https://{render_host}/app?v=4.0"
+
+    return settings.webapp_url
+
+
 async def apply_webapp_url(url: str, notify: bool = True):
     """Point the Telegram menu button (and reply keyboard) at the given Mini App URL."""
     settings.webapp_url = url
     if not url.startswith("https://"):
-        logger.info("WebApp URL is not HTTPS. Telegram Menu Button omitted until HTTPS is set.")
+        logger.info(f"WebApp URL '{url}' is not HTTPS. Telegram Menu Button omitted until HTTPS is set.")
         return
 
     try:
@@ -74,6 +97,12 @@ async def lifespan(app: FastAPI):
 
     is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("USE_WEBHOOK"))
 
+    # Auto-detect public HTTPS URL in cloud platforms like Replit
+    detected_url = detect_environment_webapp_url()
+    if detected_url.startswith("https://"):
+        settings.webapp_url = detected_url
+        logger.info(f"Detected cloud WebApp URL: {settings.webapp_url}")
+
     logger.info("Initializing database models...")
     try:
         await init_models()
@@ -87,6 +116,11 @@ async def lifespan(app: FastAPI):
         scheduler.start()
         await apply_webapp_url(settings.webapp_url)
         logger.info("Starting bot polling task...")
+        # Drop pending webhook if switching to polling
+        try:
+            await bot.delete_webhook(drop_pending_updates=False)
+        except Exception as e:
+            logger.warning(f"Failed to delete webhook: {e}")
         polling_task = asyncio.create_task(dp.start_polling(bot))
     else:
         logger.info("Running in serverless/webhook mode. Long polling and background scheduler omitted.")
@@ -174,4 +208,5 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)
