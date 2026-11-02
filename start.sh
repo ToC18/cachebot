@@ -1,11 +1,10 @@
 #!/bin/bash
 export LD_LIBRARY_PATH=/nix/store/55byk2fn6548ni8ibgd2dyzpmk4z180w-gcc-12.2.0-lib/lib:$LD_LIBRARY_PATH
 
-# Clean up mixed-version binary wheels
-rm -rf .pythonlibs
+# Verify key dependencies exist, otherwise install
+if ! python3 -c "import fastapi, aiogram, asyncpg" &>/dev/null; then
+    python3 -m pip install -r requirements.txt
+fi
 
-# Clean install for active python
-python3 -m pip install -r requirements.txt
-
-# Start production server
+# Run CacheBot server
 python3 main.py
