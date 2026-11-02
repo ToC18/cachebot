@@ -1,3 +1,4 @@
+import os
 import re
 import uuid
 from datetime import date, datetime, time as dtime
@@ -132,7 +133,7 @@ class RandomizerRequest(BaseModel):
 @router.get("/app")
 async def serve_mini_app():
     return FileResponse(
-        "app/static/index.html",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "index.html"),
         headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
     )
 

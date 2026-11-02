@@ -1,10 +1,12 @@
+import os
+import sys
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
-from aiogram.types import MenuButtonWebApp, WebAppInfo
+from aiogram.types import MenuButtonWebApp, WebAppInfo, Update
 import uvicorn
 
 from app.config import settings
@@ -70,6 +72,8 @@ async def lifespan(app: FastAPI):
     global main_loop
     main_loop = asyncio.get_running_loop()
 
+    is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("USE_WEBHOOK"))
+
     logger.info("Initializing database models...")
     try:
         await init_models()
@@ -77,23 +81,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not initialize DB tables on start: {e}")
 
-    logger.info("Starting scheduler...")
-    scheduler.start()
-
-    await apply_webapp_url(settings.webapp_url)
-
-    logger.info("Starting bot polling task...")
-    polling_task = asyncio.create_task(dp.start_polling(bot))
+    polling_task = None
+    if not is_serverless:
+        logger.info("Starting scheduler...")
+        scheduler.start()
+        await apply_webapp_url(settings.webapp_url)
+        logger.info("Starting bot polling task...")
+        polling_task = asyncio.create_task(dp.start_polling(bot))
+    else:
+        logger.info("Running in serverless/webhook mode. Long polling and background scheduler omitted.")
 
     yield
 
     logger.info("Shutting down...")
     main_loop = None
-    scheduler.shutdown(wait=False)
-    await dp.stop_polling()
+    if not is_serverless:
+        scheduler.shutdown(wait=False)
+        await dp.stop_polling()
+        if polling_task:
+            polling_task.cancel()
     await bot.session.close()
     await redis_client.close()
-    polling_task.cancel()
 
 
 app = FastAPI(
@@ -106,9 +114,52 @@ app = FastAPI(
 # Compress responses (chart.js 210KB -> ~70KB) - important for slow mobile tunnels
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Mount WebApp routes and static assets
+# Mount WebApp routes
 app.include_router(web_app_router)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Mount static files with absolute path safety
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app", "static")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.post("/api/webhook")
+async def telegram_webhook(request: Request):
+    """Processes incoming Telegram updates in serverless/webhook mode."""
+    try:
+        data = await request.json()
+        update = Update.model_validate(data, context={"bot": bot})
+        await dp.feed_update(bot=bot, update=update)
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Error handling Telegram webhook update: {e}", exc_info=True)
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/setup-webhook")
+async def setup_webhook(request: Request):
+    """Configures Telegram to send all updates to this deployed Webhook URL."""
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    proto = request.headers.get("x-forwarded-proto") or "https"
+    base_url = f"{proto}://{host}"
+    webhook_url = f"{base_url}/api/webhook"
+    mini_app_url = f"{base_url}/app?v=4.0"
+
+    settings.webapp_url = mini_app_url
+    wh_ok = await bot.set_webhook(url=webhook_url, drop_pending_updates=True)
+    btn_ok = await bot.set_chat_menu_button(
+        menu_button=MenuButtonWebApp(
+            text="📱 Приложение",
+            web_app=WebAppInfo(url=mini_app_url)
+        )
+    )
+    return {
+        "status": "configured",
+        "webhook_url": webhook_url,
+        "mini_app_url": mini_app_url,
+        "webhook_set": wh_ok,
+        "menu_button_set": btn_ok
+    }
 
 
 @app.get("/health")
@@ -117,7 +168,8 @@ async def health_check():
         "status": "healthy",
         "app_env": settings.app_env,
         "currency": settings.default_currency,
-        "webapp_url": settings.webapp_url
+        "webapp_url": settings.webapp_url,
+        "mode": "webhook" if (os.environ.get("VERCEL") or os.environ.get("USE_WEBHOOK")) else "polling"
     }
 
 
