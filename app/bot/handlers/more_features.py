@@ -491,15 +491,17 @@ async def cb_goal_eta(callback: types.CallbackQuery):
         goals_stmt = select(Goal).where(Goal.user_id == user_id)
         goals = (await session.execute(goals_stmt)).scalars().all()
 
-    # Оценка ежемесячного взноса = net_base * (savings_target_percent / 100)
-    monthly_savings = (user.current_cycle_net_base * (user.savings_target_percent / Decimal("100.00"))).quantize(Decimal("0.01"))
-    if monthly_savings <= Decimal("0.00"):
-        monthly_savings = Decimal("100.00")  # базовый ориентир
+        net_base = user.current_cycle_net_base or Decimal("0.00")
+        savings_pct = user.savings_target_percent or Decimal("20.00")
+        monthly_savings = (net_base * (savings_pct / Decimal("100.00"))).quantize(Decimal("0.01"))
+        if monthly_savings <= Decimal("0.00"):
+            monthly_savings = Decimal("100.00")  # базовый ориентир
+        currency = user.currency or "BYN"
 
     if not goals:
         text = (
             "🎯 **Расчет срока накопления:**\n\n"
-            f"Твой текущий темп отчислений в копилку: **{monthly_savings} {user.currency}/месяц**.\n\n"
+            f"Твой текущий темп отчислений в копилку: **{monthly_savings} {currency}/месяц**.\n\n"
             "У тебя пока нет созданных целей. Создай первую командой:\n"
             "`/goal <название> <сумма>` (например, `/goal Ноутбук 2500`)"
         )
@@ -510,10 +512,10 @@ async def cb_goal_eta(callback: types.CallbackQuery):
     lines = ["🎯 **Прогноз достижения твоих финансовых целей:**\n"]
     for g in goals:
         res = estimate_goal_months(g.target_amount, g.current_amount, monthly_savings)
-        lines.append(f"🏆 **{g.title}** ({g.current_amount}/{g.target_amount} {user.currency})")
+        lines.append(f"🏆 **{g.title}** ({g.current_amount}/{g.target_amount} {currency})")
         lines.append(f"   {res['formatted']}\n")
 
-    lines.append(f"_Расчет основан на твоих отчислениях в копилку: {monthly_savings} {user.currency}/мес._")
+    lines.append(f"_Расчет основан на твоих отчислениях в копилку: {monthly_savings} {currency}/мес._")
     await callback.message.answer("\n".join(lines), parse_mode="Markdown")
     await callback.answer()
 

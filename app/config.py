@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     database_url: str = Field(default_factory=get_active_database_url, alias="DB_URL")
     redis_url: str = Field(default=os.environ.get("REDIS_URL", ""), alias="REDIS_URL")
 
-    webapp_url: str = Field(default="http://localhost:8000/app", alias="WEBAPP_URL")
+    webapp_url: str = Field(default="https://cachebot--le1nnq.replit.app/app?v=4.0", alias="WEBAPP_URL")
     tunnel_provider: str = Field(default="localhostrun", alias="TUNNEL_PROVIDER")
 
     app_env: str = Field(default="production", alias="APP_ENV")

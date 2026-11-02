@@ -38,15 +38,11 @@ def detect_environment_webapp_url() -> str:
     if os.environ.get("WEBAPP_URL"):
         return os.environ["WEBAPP_URL"].strip()
 
-    # Replit Dev Domain
-    replit_dev = os.environ.get("REPLIT_DEV_DOMAIN")
-    if replit_dev:
-        return f"https://{replit_dev}/app?v=4.0"
-
+    # Replit public production domain (uses double-dash: slug--owner.replit.app)
     slug = os.environ.get("REPL_SLUG")
     owner = os.environ.get("REPL_OWNER")
     if slug and owner:
-        return f"https://{slug}.{owner}.replit.app/app?v=4.0"
+        return f"https://{slug}--{owner}.replit.app/app?v=4.0"
 
     # Render.com
     render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
