@@ -3,7 +3,12 @@ from decimal import Decimal
 from enum import Enum
 from typing import List, Optional
 from pydantic import BaseModel, Field
-import google.generativeai as genai
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
 from app.config import settings
 
 
@@ -38,7 +43,7 @@ class GeminiVisionService:
         self.api_key = api_key or settings.gemini_api_key
         self.model = None
 
-        if self.api_key and self.api_key != "your_gemini_api_key_here":
+        if genai and self.api_key and self.api_key != "your_gemini_api_key_here":
             genai.configure(api_key=self.api_key)
             system_instruction = """
             Ты — финансовый эксперт-парсер чеков и банковских выписок.
@@ -65,7 +70,7 @@ class GeminiVisionService:
                - category: "Доход / Зарплата"
             """
             self.model = genai.GenerativeModel(
-                model_name="gemini-3.5-flash-lite",
+                model_name="gemini-1.5-flash",
                 system_instruction=system_instruction,
                 generation_config={
                     "response_mime_type": "application/json",
@@ -75,6 +80,8 @@ class GeminiVisionService:
             )
 
     async def analyze_image(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> VisionAnalysisResult:
+        if not genai:
+            raise RuntimeError("Библиотека google-generativeai не установлена.")
         if not self.model:
             raise ValueError("GEMINI_API_KEY не сконфигурирован в .env")
 
