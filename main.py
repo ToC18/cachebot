@@ -34,9 +34,14 @@ main_loop: asyncio.AbstractEventLoop | None = None
 
 
 def detect_environment_webapp_url() -> str:
-    """Auto-detects the public URL from Replit, Render, Railway, or explicit WEBAPP_URL."""
+    """Auto-detects the public URL from Koyeb, Replit, Render, Railway, or explicit WEBAPP_URL."""
     if os.environ.get("WEBAPP_URL"):
         return os.environ["WEBAPP_URL"].strip()
+
+    # Koyeb auto-injected public domain
+    koyeb_domain = os.environ.get("KOYEB_PUBLIC_DOMAIN")
+    if koyeb_domain:
+        return f"https://{koyeb_domain}/app?v=4.0"
 
     # Replit public production domain (uses double-dash: slug--owner.replit.app)
     slug = os.environ.get("REPL_SLUG")
@@ -93,7 +98,7 @@ async def lifespan(app: FastAPI):
 
     is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("USE_WEBHOOK"))
 
-    # Auto-detect public HTTPS URL in cloud platforms like Replit
+    # Auto-detect public HTTPS URL in cloud platforms like Koyeb, Replit, etc.
     detected_url = detect_environment_webapp_url()
     if detected_url.startswith("https://"):
         settings.webapp_url = detected_url
