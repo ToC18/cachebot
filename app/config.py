@@ -17,7 +17,7 @@ class Settings(BaseSettings):
         default=os.environ.get("DB_URL") or os.environ.get("NEON_DB_URL") or os.environ.get("DATABASE_URL") or DEFAULT_NEON_DB,
         alias="DB_URL"
     )
-    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    redis_url: str = Field(default=os.environ.get("REDIS_URL", ""), alias="REDIS_URL")
 
     webapp_url: str = Field(default="http://localhost:8000/app", alias="WEBAPP_URL")
     tunnel_provider: str = Field(default="localhostrun", alias="TUNNEL_PROVIDER")

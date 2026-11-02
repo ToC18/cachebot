@@ -2,7 +2,6 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.redis import RedisStorage
 from app.config import settings
-from app.services.redis_service import redis_client
 
 # Handlers
 from app.bot.handlers import salary, expenses, crisis, stats, paywall, settings as bot_settings, more_features
@@ -13,9 +12,12 @@ def create_bot() -> Bot:
 
 
 def create_dispatcher() -> Dispatcher:
-    # Use Redis storage if redis connection string provided, else fallback to memory
-    if settings.redis_url:
-        storage = RedisStorage.from_url(settings.redis_url)
+    # Use MemoryStorage by default in serverless/cloud environments without external Redis
+    if settings.redis_url and "localhost" not in settings.redis_url:
+        try:
+            storage = RedisStorage.from_url(settings.redis_url)
+        except Exception:
+            storage = MemoryStorage()
     else:
         storage = MemoryStorage()
 
